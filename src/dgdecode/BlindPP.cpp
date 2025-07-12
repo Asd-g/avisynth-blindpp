@@ -1,112 +1,182 @@
-#include "AvisynthAPI.h"
-#include "PostProcess.h"
-#include <algorithm>
+#include <string>
+#include <vector>
 
-BlindPP::BlindPP(AVSValue args, IScriptEnvironment* env)
-    : GenericVideoFilter(args[0].AsClip())
+#include "BlindPP.h"
+
+namespace
 {
-    int quant = args[1].AsInt(2);
+    [[nodiscard]] ChromaFormat GetChromaFormat(const VideoInfo& vi) noexcept
+    {
+        if (vi.IsY8())
+            return ChromaFormat::Y8;
+
+        if (vi.IsYV12())
+            return ChromaFormat::YUV420;
+
+        if (vi.IsYV16())
+            return ChromaFormat::YUV422;
+
+        if (vi.IsYV24())
+            return ChromaFormat::YUV444;
+
+        return ChromaFormat::YUV420;
+    }
+} // namespace
+
+BlindPP::BlindPP(PClip _child, int quant, int cpu, std::string_view cpu2, bool iPP, int moderate_h, int moderate_v, IScriptEnvironment* env)
+    : GenericVideoFilter(_child),
+      iPP_(iPP),
+      pp_mode_(PPFlags::None),
+      moderate_h_(moderate_h),
+      moderate_v_(moderate_v),
+      has_v8(env->FunctionExists("propShow")),
+      format_(GetChromaFormat(vi))
+{
     if (vi.width % 16 != 0)
-        env->ThrowError("BlindPP : Need mod16 width");
+        env->ThrowError("BlindPP: Need mod16 width.");
+
     if (vi.height % 16 != 0)
-        env->ThrowError("BlindPP : Need mod16 height");
-    if (!vi.IsYV12() && !vi.IsYV16())
-        env->ThrowError("BlindPP : Only YV12 and YV16 supported");
+        env->ThrowError("BlindPP: Need mod16 height.");
 
-    int n = vi.width * vi.height / 256;
-    QP = reinterpret_cast<int*>(static_cast<IScriptEnvironment2*>(env)->Allocate(n * sizeof(int), 4, AVS_NORMAL_ALLOC));
-    if (QP == nullptr)
-        env->ThrowError("BlindPP:  malloc failure!");
-    env->AtExit(
-        [](void* p, IScriptEnvironment* e) {
-            static_cast<IScriptEnvironment2*>(e)->Free(p);
-            p = nullptr;
-        },
-        QP);
-    std::fill_n(QP, n, quant);
+    if (vi.IsRGB() || (!vi.IsPlanar() && !vi.IsRGB()))
+        env->ThrowError("BlindPP: Only Y8, YV12, YV16, and YV24 are supported.");
 
-    switch (args[2].AsInt(6))
+    if (moderate_h_ < 0 || moderate_h_ > 255)
+        env->ThrowError("BlindPP: 'moderate_h' must be between 0 and 255 (inclusive).");
+
+    if (moderate_v_ < 0 || moderate_v_ > 255)
+        env->ThrowError("BlindPP: 'moderate_v' must be between 0 and 255 (inclusive).");
+
+    if (quant < 0 || quant > 31)
+        env->ThrowError("BlindPP: 'quant' must be between 0 and 31 (inclusive).");
+
+    const size_t n_blocks = static_cast<size_t>(vi.width) * vi.height / 256;
+    QP_STORE_T* QP_raw = static_cast<QP_STORE_T*>(env->Allocate(n_blocks * sizeof(QP_STORE_T), 64, AVS_POOLED_ALLOC));
+
+    if (!QP_raw)
+        env->ThrowError("BlindPP: Failed to allocate memory for QP store.");
+
+    QP_ = std::unique_ptr<QP_STORE_T[], AvsDeleter>(QP_raw, AvsDeleter{env});
+
+    std::fill_n(QP_.get(), n_blocks, quant);
+
+    switch (cpu)
     {
     case 0:
-        PP_MODE = 0;
+        pp_mode_ = PPFlags::None;
         break;
     case 1:
-        PP_MODE = PP_DEBLOCK_Y_H;
+        pp_mode_ = PPFlags::DeblockYH;
         break;
     case 2:
-        PP_MODE = PP_DEBLOCK_Y_H | PP_DEBLOCK_Y_V;
+        pp_mode_ = PPFlags::DeblockYH | PPFlags::DeblockYV;
         break;
     case 3:
-        PP_MODE = PP_DEBLOCK_Y_H | PP_DEBLOCK_Y_V | PP_DEBLOCK_C_H;
+        pp_mode_ = PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH;
         break;
     case 4:
-        PP_MODE = PP_DEBLOCK_Y_H | PP_DEBLOCK_Y_V | PP_DEBLOCK_C_H | PP_DEBLOCK_C_V;
+        pp_mode_ = PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH | PPFlags::DeblockCV;
         break;
     case 5:
-        PP_MODE = PP_DEBLOCK_Y_H | PP_DEBLOCK_Y_V | PP_DEBLOCK_C_H | PP_DEBLOCK_C_V | PP_DERING_Y;
+        pp_mode_ = PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH | PPFlags::DeblockCV | PPFlags::DeringY;
         break;
     case 6:
-        PP_MODE = PP_DEBLOCK_Y_H | PP_DEBLOCK_Y_V | PP_DEBLOCK_C_H | PP_DEBLOCK_C_V | PP_DERING_Y | PP_DERING_C;
+        pp_mode_ = PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH | PPFlags::DeblockCV | PPFlags::DeringY | PPFlags::DeringC;
         break;
     default:
-        env->ThrowError("BlindPP : cpu level invalid (0 to 6)");
+        env->ThrowError("BlindPP: 'cpu' level must be between 0 and 6.");
     }
 
-    const char* cpu2 = args[3].AsString("");
-    if (strlen(cpu2) == 6)
+    if (cpu2.length() == 6)
     {
-        PP_MODE = 0;
+        pp_mode_ = PPFlags::None;
         if (cpu2[0] == 'x' || cpu2[0] == 'X')
         {
-            PP_MODE |= PP_DEBLOCK_Y_H;
+            pp_mode_ |= PPFlags::DeblockYH;
         }
         if (cpu2[1] == 'x' || cpu2[1] == 'X')
         {
-            PP_MODE |= PP_DEBLOCK_Y_V;
+            pp_mode_ |= PPFlags::DeblockYV;
         }
         if (cpu2[2] == 'x' || cpu2[2] == 'X')
         {
-            PP_MODE |= PP_DEBLOCK_C_H;
+            pp_mode_ |= PPFlags::DeblockCH;
         }
         if (cpu2[3] == 'x' || cpu2[3] == 'X')
         {
-            PP_MODE |= PP_DEBLOCK_C_V;
+            pp_mode_ |= PPFlags::DeblockCV;
         }
         if (cpu2[4] == 'x' || cpu2[4] == 'X')
         {
-            PP_MODE |= PP_DERING_Y;
+            pp_mode_ |= PPFlags::DeringY;
         }
         if (cpu2[5] == 'x' || cpu2[5] == 'X')
         {
-            PP_MODE |= PP_DERING_C;
+            pp_mode_ |= PPFlags::DeringC;
         }
     }
-
-    iPP = args[4].AsBool(false);
-    moderate_h = args[5].AsInt(20);
-    moderate_v = args[6].AsInt(40);
 }
 
 PVideoFrame __stdcall BlindPP::GetFrame(int n, IScriptEnvironment* env)
 {
-    PVideoFrame cf = child->GetFrame(n, env);
-    PVideoFrame dstf = env->NewVideoFrameP(vi, &cf);
+    PVideoFrame src_frame = child->GetFrame(n, env);
+    PVideoFrame dst_frame = has_v8 ? env->NewVideoFrameP(vi, &src_frame) : env->NewVideoFrameP(vi, &src_frame);
 
-    uint8_t* src[3];
-    uint8_t* dst[3];
-    src[0] = const_cast<uint8_t*>(cf->GetReadPtr(PLANAR_Y));
-    src[1] = const_cast<uint8_t*>(cf->GetReadPtr(PLANAR_U));
-    src[2] = const_cast<uint8_t*>(cf->GetReadPtr(PLANAR_V));
-    dst[0] = dstf->GetWritePtr(PLANAR_Y);
-    dst[1] = dstf->GetWritePtr(PLANAR_U);
-    dst[2] = dstf->GetWritePtr(PLANAR_V);
-    postprocess(src, cf->GetPitch(PLANAR_Y), cf->GetPitch(PLANAR_U), dst, dstf->GetPitch(PLANAR_Y), dstf->GetPitch(PLANAR_U), vi.width,
-        vi.height, QP, vi.width / 16, PP_MODE, moderate_h, moderate_v, vi.Is422(), iPP);
+    const int num_planes = (format_ == ChromaFormat::Y8) ? 1 : 3;
+    int src_strides[3]{};
+    int dst_strides[3]{};
+    int width[2]{};
+    int height[2]{};
+    const uint8_t* src_planes[3]{};
+    uint8_t* dst_planes[3]{};
 
-    return dstf;
+    constexpr int plane_indices[] = {PLANAR_Y, PLANAR_U, PLANAR_V};
+
+    for (int i = 0; i < num_planes; ++i)
+    {
+        const int plane = plane_indices[i];
+        src_strides[i] = src_frame->GetPitch(plane);
+        dst_strides[i] = dst_frame->GetPitch(plane);
+        src_planes[i] = src_frame->GetReadPtr(plane);
+        dst_planes[i] = dst_frame->GetWritePtr(plane);
+
+        if (i < 2)
+        {
+            width[i] = src_frame->GetRowSize(plane);
+            height[i] = src_frame->GetHeight(plane);
+        }
+    }
+
+    postprocess(src_planes, src_strides, dst_planes, dst_strides, width, height, QP_.get(), width[0] / 16, pp_mode_, moderate_h_,
+        moderate_v_, format_, iPP_);
+
+    return dst_frame;
 }
 
-AVSValue __cdecl BlindPP::create(AVSValue args, void*, IScriptEnvironment* env)
+AVSValue __cdecl BlindPP_create(AVSValue args, void*, IScriptEnvironment* env)
 {
-    return new BlindPP(args, env);
+    enum class Arg : int
+    {
+        Clip = 0,
+        Quant,
+        Cpu,
+        Cpu2,
+        IPP,
+        ModerateH,
+        ModerateV
+    };
+
+    return new BlindPP(args[static_cast<int>(Arg::Clip)].AsClip(), args[static_cast<int>(Arg::Quant)].AsInt(2),
+        args[static_cast<int>(Arg::Cpu)].AsInt(6), args[static_cast<int>(Arg::Cpu2)].AsString(""),
+        args[static_cast<int>(Arg::IPP)].AsBool(false), args[static_cast<int>(Arg::ModerateH)].AsInt(20),
+        args[static_cast<int>(Arg::ModerateV)].AsInt(40), env);
+}
+
+const AVS_Linkage* AVS_linkage{};
+
+extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors)
+{
+    AVS_linkage = vectors;
+    env->AddFunction("BlindPP", "c[quant]i[cpu]i[cpu2]s[iPP]b[moderate_h]i[moderate_v]i", BlindPP_create, nullptr);
+    return "BlindPP";
 }
