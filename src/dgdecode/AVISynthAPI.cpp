@@ -26,18 +26,16 @@
  *
  */
 
-#include <malloc.h>
 #include "AvisynthAPI.h"
+#include <malloc.h>
 
 const AVS_Linkage* AVS_linkage = nullptr;
 
-
-extern "C" __declspec(dllexport) const char* __stdcall
-AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors)
+extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors)
 {
     AVS_linkage = vectors;
 
-   env->AddFunction("BlindPP", "c[quant]i[cpu]i[cpu2]s[iPP]b[moderate_h]i[moderate_v]i", BlindPP::create, nullptr);
+    env->AddFunction("BlindPP", "c[quant]i[cpu]i[cpu2]s[iPP]b[moderate_h]i[moderate_v]i", BlindPP::create, nullptr);
 
     return "BlindPP";
 }

@@ -26,9 +26,8 @@
 #ifndef MPEG2DECPLUS_AVS_API_H
 #define MPEG2DECPLUS_AVS_API_H
 
-#include <cstdint>
 #include "avisynth.h"
-
+#include <cstdint>
 
 class BlindPP : public GenericVideoFilter
 {
@@ -40,8 +39,13 @@ class BlindPP : public GenericVideoFilter
 public:
     BlindPP(AVSValue args, IScriptEnvironment* env);
     PVideoFrame __stdcall GetFrame(int n, IScriptEnvironment* env);
-    ~BlindPP() {}
-    int __stdcall SetCacheHints(int hints, int) { return hints == CACHE_GET_MTMODE ? MT_NICE_FILTER : 0; }
+    ~BlindPP()
+    {
+    }
+    int __stdcall SetCacheHints(int hints, int)
+    {
+        return hints == CACHE_GET_MTMODE ? MT_NICE_FILTER : 0;
+    }
     static AVSValue __cdecl create(AVSValue args, void*, IScriptEnvironment* env);
 };
 
