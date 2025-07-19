@@ -16,21 +16,17 @@ struct AvsDeleter
     void operator()(QP_STORE_T* ptr) const noexcept
     {
         if (ptr && env)
-        {
             env->Free(ptr);
-        }
     }
 };
 
 class BlindPP final : public GenericVideoFilter
 {
+    const int component_size_;
+    const bool has_v8_;
     std::unique_ptr<QP_STORE_T[], AvsDeleter> QP_;
-    const bool iPP_;
-    PPFlags pp_mode_;
-    const int moderate_h_;
-    const int moderate_v_;
-    const bool has_v8;
-    const ChromaFormat format_;
+    PostProcessFunction process_func_;
+    PostProcessConfig pp_config_;
 
 public:
     BlindPP(PClip _child, int quant, int cpu, std::string_view cpu2, bool iPP, int moderate_h, int moderate_v, IScriptEnvironment* env);
