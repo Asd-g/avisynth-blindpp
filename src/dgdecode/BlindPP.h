@@ -29,7 +29,8 @@ class BlindPP final : public GenericVideoFilter
     PostProcessConfig pp_config_;
 
 public:
-    BlindPP(PClip _child, int quant, int cpu, std::string_view cpu2, bool iPP, int moderate_h, int moderate_v, IScriptEnvironment* env);
+    BlindPP(PClip _child, int quant, int cpu, std::string_view cpu2, bool iPP, int moderate_h, int moderate_v, int opt,
+        IScriptEnvironment* env);
     ~BlindPP() override = default;
 
     BlindPP(const BlindPP&) = delete;

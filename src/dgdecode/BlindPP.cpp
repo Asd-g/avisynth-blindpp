@@ -66,7 +66,8 @@ namespace
     }
 } // namespace
 
-BlindPP::BlindPP(PClip _child, int quant, int cpu, std::string_view cpu2, bool iPP, int moderate_h, int moderate_v, IScriptEnvironment* env)
+BlindPP::BlindPP(
+    PClip _child, int quant, int cpu, std::string_view cpu2, bool iPP, int moderate_h, int moderate_v, int opt_, IScriptEnvironment* env)
     : GenericVideoFilter(_child),
       component_size_(vi.ComponentSize()),
       has_v8_(env->FunctionExists("propShow")),
@@ -108,6 +109,27 @@ BlindPP::BlindPP(PClip _child, int quant, int cpu, std::string_view cpu2, bool i
 
     if (quant < 0 || quant > 63)
         env->ThrowError("BlindPP: 'quant' must be between 0 and 63 (inclusive).");
+
+    const int cpu_instrucs{[&]() {
+        const int flags{env->GetCPUFlags()};
+
+        if ((flags & CPUF_AVX512F) && (opt_ < 0 || opt_ == 3))
+            return 3;
+        if ((flags & CPUF_AVX2) && (opt_ < 0 || opt_ == 2))
+            return 2;
+        if ((flags & CPUF_SSE2) && (opt_ < 0 || opt_ == 1))
+            return 1;
+        return 0;
+    }()};
+
+    if (opt_ == 3 && cpu_instrucs != 3)
+        env->ThrowError("BlindPP: opt=3 requires AVX-512");
+    else if (opt_ == 2 && cpu_instrucs != 2)
+        env->ThrowError("BlindPP: opt=2 requires AVX2");
+    else if (opt_ == 1 && cpu_instrucs != 1)
+        env->ThrowError("BlindPP: opt=1 requires SSE2");
+
+    opt_level() = cpu_instrucs;
 
     const size_t n_blocks{static_cast<size_t>(vi.width) * vi.height / 256};
     QP_STORE_T* QP_raw{static_cast<QP_STORE_T*>(env->Allocate(n_blocks * sizeof(QP_STORE_T), 64, AVS_POOLED_ALLOC))};
@@ -160,13 +182,14 @@ AVSValue __cdecl BlindPP_create(AVSValue args, void*, IScriptEnvironment* env)
         Cpu2,
         IPP,
         ModerateH,
-        ModerateV
+        ModerateV,
+        Opt
     };
 
     return new BlindPP(args[static_cast<int>(Arg::Clip)].AsClip(), args[static_cast<int>(Arg::Quant)].AsInt(2),
         args[static_cast<int>(Arg::Cpu)].AsInt(6), args[static_cast<int>(Arg::Cpu2)].AsString(""),
         args[static_cast<int>(Arg::IPP)].AsBool(false), args[static_cast<int>(Arg::ModerateH)].AsInt(20),
-        args[static_cast<int>(Arg::ModerateV)].AsInt(40), env);
+        args[static_cast<int>(Arg::ModerateV)].AsInt(40), args[static_cast<int>(Arg::Opt)].AsInt(-1), env);
 }
 
 const AVS_Linkage* AVS_linkage{};
@@ -174,6 +197,6 @@ const AVS_Linkage* AVS_linkage{};
 extern "C" __declspec(dllexport) const char* __stdcall AvisynthPluginInit3(IScriptEnvironment* env, const AVS_Linkage* const vectors)
 {
     AVS_linkage = vectors;
-    env->AddFunction("BlindPP", "c[quant]i[cpu]i[cpu2]s[iPP]b[moderate_h]i[moderate_v]i", BlindPP_create, nullptr);
+    env->AddFunction("BlindPP", "c[quant]i[cpu]i[cpu2]s[iPP]b[moderate_h]i[moderate_v]i[opt]i", BlindPP_create, nullptr);
     return "BlindPP";
 }

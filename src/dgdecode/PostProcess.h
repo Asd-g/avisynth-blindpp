@@ -41,6 +41,24 @@ enum class ChromaFormat
     YUV444
 };
 
+template<typename T>
+struct DeblockVertTypes;
+template<>
+struct DeblockVertTypes<uint8_t>
+{
+    using intermediate = uint16_t;
+};
+template<>
+struct DeblockVertTypes<uint16_t>
+{
+    using intermediate = uint32_t;
+};
+template<>
+struct DeblockVertTypes<float>
+{
+    using intermediate = float;
+};
+
 // New struct for configuration parameters (constant per filter instance)
 struct PostProcessConfig
 {
@@ -66,8 +84,11 @@ struct FrameData
 
 using PostProcessFunction = void (*)(FrameData& frame, const PostProcessConfig& config) noexcept;
 
+int& opt_level();
+inline int get_opt()
+{
+    return opt_level();
+}
+
 template<typename T>
 void postprocess_impl(FrameData& frame, const PostProcessConfig& config) noexcept;
-
-void __stdcall fast_copy(const uint8_t* AVS_RESTRICT src, int src_stride, uint8_t* AVS_RESTRICT dst, int dst_stride, int horizontal_size,
-    int vertical_size) noexcept;
