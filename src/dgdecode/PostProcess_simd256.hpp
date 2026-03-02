@@ -317,8 +317,8 @@ namespace SIMD_NAMESPACE
         int chroma_flag_for_qp, int moderate_v, int bit_depth, bool is_float_chroma) noexcept
     {
         using intermediate_t = typename DeblockVertTypes<T>::intermediate;
-        alignas(32) std::array<intermediate_t, 8 * 8> v_local;
-        alignas(32) std::array<intermediate_t, 2 * 8> p1p2;
+        alignas(64) std::array<intermediate_t, 8 * 8> v_local;
+        alignas(64) std::array<intermediate_t, 2 * 8> p1p2;
 
         for (int Bx{0}; Bx < width; Bx += 8)
         {

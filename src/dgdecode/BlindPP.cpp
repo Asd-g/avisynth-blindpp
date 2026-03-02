@@ -110,22 +110,29 @@ BlindPP::BlindPP(
     if (quant < 0 || quant > 63)
         env->ThrowError("BlindPP: 'quant' must be between 0 and 63 (inclusive).");
 
+    if (opt_ < -1 || opt_ > 4)
+        env->ThrowError("BlindPP: 'opt' must be between -1 and 4 (inclusive).");
+
     const int cpu_instrucs{[&]() {
         const int flags{env->GetCPUFlags()};
 
-        if ((flags & CPUF_AVX512F) && (opt_ < 0 || opt_ == 3))
+        if ((flags & CPUF_AVX512F) && (opt_ < 0 || opt_ == 4))
+            return 4;
+        if ((flags & CPUF_AVX2) && (opt_ < 0 || opt_ == 3))
             return 3;
-        if ((flags & CPUF_AVX2) && (opt_ < 0 || opt_ == 2))
+        if ((flags & CPUF_SSE4_1) && (opt_ < 0 || opt_ == 2))
             return 2;
         if ((flags & CPUF_SSE2) && (opt_ < 0 || opt_ == 1))
             return 1;
         return 0;
     }()};
 
-    if (opt_ == 3 && cpu_instrucs != 3)
-        env->ThrowError("BlindPP: opt=3 requires AVX-512");
+    if (opt_ == 4 && cpu_instrucs != 4)
+        env->ThrowError("BlindPP: opt=4 requires AVX-512");
+    else if (opt_ == 3 && cpu_instrucs != 3)
+        env->ThrowError("BlindPP: opt=3 requires AVX2");
     else if (opt_ == 2 && cpu_instrucs != 2)
-        env->ThrowError("BlindPP: opt=2 requires AVX2");
+        env->ThrowError("BlindPP: opt=2 requires SSE4.1");
     else if (opt_ == 1 && cpu_instrucs != 1)
         env->ThrowError("BlindPP: opt=1 requires SSE2");
 

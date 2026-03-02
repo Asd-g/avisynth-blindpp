@@ -664,17 +664,35 @@ int& opt_level()
     return value;
 }
 
-template<typename T>
-extern void deblock_horiz_sse(T* AVS_RESTRICT image, int width, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
-    int chroma_flag_for_qp, int moderate_h, int bit_depth, bool is_float_chroma) noexcept;
+namespace sse2_opt
+{
+    template<typename T> extern void deblock_horiz(T* AVS_RESTRICT image, int width, int stride,
+        const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride, int chroma_flag_for_qp, int moderate_h, int bit_depth,
+        bool is_float_chroma) noexcept;
 
-template<typename T>
-extern void deblock_vert_sse(T* AVS_RESTRICT image, int width, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
-    int chroma_flag_for_qp, int moderate_v, int bit_depth, bool is_float_chroma) noexcept;
+    template<typename T>
+    extern void deblock_vert(T* AVS_RESTRICT image, int width, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
+        int chroma_flag_for_qp, int moderate_v, int bit_depth, bool is_float_chroma) noexcept;
 
-template<typename T>
-extern void dering_sse(T* AVS_RESTRICT image, int width, int height, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
-    int chroma_flag_for_qp, int bit_depth, bool is_float_chroma) noexcept;
+    template<typename T>
+    extern void dering(T* AVS_RESTRICT image, int width, int height, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
+        int chroma_flag_for_qp, int bit_depth, bool is_float_chroma) noexcept;
+} // namespace sse2_opt
+
+namespace sse41_opt
+{
+    template<typename T>
+    extern void deblock_horiz(T* AVS_RESTRICT image, int width, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
+        int chroma_flag_for_qp, int moderate_h, int bit_depth, bool is_float_chroma) noexcept;
+
+    template<typename T>
+    extern void deblock_vert(T* AVS_RESTRICT image, int width, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
+        int chroma_flag_for_qp, int moderate_v, int bit_depth, bool is_float_chroma) noexcept;
+
+    template<typename T>
+    extern void dering(T* AVS_RESTRICT image, int width, int height, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
+        int chroma_flag_for_qp, int bit_depth, bool is_float_chroma) noexcept;
+} // namespace sse41_opt
 
 namespace avx2_opt
 {
@@ -735,12 +753,14 @@ void postprocess_impl(FrameData& frame, const PostProcessConfig& config) noexcep
     const auto [deblock_horiz_process, deblock_vert_process, dering_process]{[&]() -> processors {
         const int opt{get_opt()};
 
+        if (opt == 4)
+            return {&sse41_opt::deblock_horiz<T>, &avx512_opt::deblock_vert<T>, &avx512_opt::dering<T>};
         if (opt == 3)
-            return {&deblock_horiz_sse<T>, &avx512_opt::deblock_vert<T>, &avx512_opt::dering<T>};
+            return {&sse41_opt::deblock_horiz<T>, &avx2_opt::deblock_vert<T>, &avx2_opt::dering<T>};
         if (opt == 2)
-            return {&deblock_horiz_sse<T>, &avx2_opt::deblock_vert<T>, &avx2_opt::dering<T>};
+            return {&sse41_opt::deblock_horiz<T>, &sse41_opt::deblock_vert<T>, &sse41_opt::dering<T>};
         if (opt == 1)
-            return {&deblock_horiz_sse<T>, &deblock_vert_sse<T>, &dering_sse<T>};
+            return {&sse2_opt::deblock_horiz<T>, &sse2_opt::deblock_vert<T>, &sse2_opt::dering<T>};
 
         return {&deblock_horiz<T>, &deblock_vert<T>, &dering<T>};
     }()};
