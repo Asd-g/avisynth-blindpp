@@ -1,7 +1,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
-#include <cstring>
+#include <cstddef>
 #include <type_traits>
 
 #include "PostProcess_common.h"
@@ -666,9 +666,9 @@ int& opt_level()
 
 namespace sse2_opt
 {
-    template<typename T> extern void deblock_horiz(T* AVS_RESTRICT image, int width, int stride,
-        const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride, int chroma_flag_for_qp, int moderate_h, int bit_depth,
-        bool is_float_chroma) noexcept;
+    template<typename T>
+    extern void deblock_horiz(T* AVS_RESTRICT image, int width, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
+        int chroma_flag_for_qp, int moderate_h, int bit_depth, bool is_float_chroma) noexcept;
 
     template<typename T>
     extern void deblock_vert(T* AVS_RESTRICT image, int width, int stride, const QP_STORE_T* AVS_RESTRICT QP_store, int QP_stride,
@@ -772,7 +772,6 @@ void postprocess_impl(FrameData& frame, const PostProcessConfig& config) noexcep
 
         const uint8_t* AVS_RESTRICT p_src{src[plane_idx]};
         T* AVS_RESTRICT p_dst{reinterpret_cast<T*>(dst[plane_idx])};
-        const int src_stride{static_cast<int>(src_strides[plane_idx] / sizeof(T))};
         const int dst_stride{static_cast<int>(dst_strides[plane_idx] / sizeof(T))};
         const int plane_width{static_cast<int>((is_luma ? luma_width : chroma_width) / sizeof(T))};
         const int plane_height{is_luma ? luma_height : chroma_height};

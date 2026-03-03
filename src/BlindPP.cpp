@@ -71,7 +71,7 @@ BlindPP::BlindPP(
     : GenericVideoFilter(_child),
       component_size_(vi.ComponentSize()),
       has_v8_(env->FunctionExists("propShow")),
-      process_func_([&] {
+      process_func_([&]() -> PostProcessFunction {
           switch (component_size_)
           {
           case 1:
@@ -82,6 +82,7 @@ BlindPP::BlindPP(
               return &postprocess_impl<float>;
           default:
               env->ThrowError("BlindPP: Unsupported pixel format component size.");
+              return nullptr;
           }
       }()),
       pp_config_{.mode = get_pp_flags(cpu, cpu2, env),
