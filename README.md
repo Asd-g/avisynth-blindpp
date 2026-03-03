@@ -69,7 +69,7 @@ Sets the CPU optimization level.<br>
 * `1`: SSE2.
 * `2`: SSE4.1.
 * `3`: AVX2.
-* `4`: AVX-512.
+* `4`: AVX-512.<br>
 Default: `-1`.
 
 ### Building:

@@ -26,23 +26,23 @@ namespace
         {
             switch (cpu)
             {
-            case 0:
-                return PPFlags::None;
-            case 1:
-                return PPFlags::DeblockYH;
-            case 2:
-                return PPFlags::DeblockYH | PPFlags::DeblockYV;
-            case 3:
-                return PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH;
-            case 4:
-                return PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH | PPFlags::DeblockCV;
-            case 5:
-                return PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH | PPFlags::DeblockCV | PPFlags::DeringY;
-            case 6:
-                return PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH | PPFlags::DeblockCV | PPFlags::DeringY |
-                       PPFlags::DeringC;
-            default:
-                env->ThrowError("BlindPP: 'cpu' level must be between 0 and 6.");
+                case 0:
+                    return PPFlags::None;
+                case 1:
+                    return PPFlags::DeblockYH;
+                case 2:
+                    return PPFlags::DeblockYH | PPFlags::DeblockYV;
+                case 3:
+                    return PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH;
+                case 4:
+                    return PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH | PPFlags::DeblockCV;
+                case 5:
+                    return PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH | PPFlags::DeblockCV | PPFlags::DeringY;
+                case 6:
+                    return PPFlags::DeblockYH | PPFlags::DeblockYV | PPFlags::DeblockCH | PPFlags::DeblockCV | PPFlags::DeringY |
+                           PPFlags::DeringC;
+                default:
+                    env->ThrowError("BlindPP: 'cpu' level must be between 0 and 6.");
             }
         }
 
@@ -74,15 +74,15 @@ BlindPP::BlindPP(
       process_func_([&]() -> PostProcessFunction {
           switch (component_size_)
           {
-          case 1:
-              return &postprocess_impl<uint8_t>;
-          case 2:
-              return &postprocess_impl<uint16_t>;
-          case 4:
-              return &postprocess_impl<float>;
-          default:
-              env->ThrowError("BlindPP: Unsupported pixel format component size.");
-              return nullptr;
+              case 1:
+                  return &postprocess_impl<uint8_t>;
+              case 2:
+                  return &postprocess_impl<uint16_t>;
+              case 4:
+                  return &postprocess_impl<float>;
+              default:
+                  env->ThrowError("BlindPP: Unsupported pixel format component size.");
+                  return nullptr;
           }
       }()),
       pp_config_{.mode = get_pp_flags(cpu, cpu2, env),

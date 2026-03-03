@@ -124,8 +124,7 @@ AVS_FORCEINLINE void deblock_vert_choose_p1p2(
 }
 
 AVS_FORCEINLINE void fast_copy(const uint8_t* AVS_RESTRICT src, int src_stride, uint8_t* AVS_RESTRICT dst, int dst_stride,
-    int horizontal_size,
-    int vertical_size) noexcept
+    int horizontal_size, int vertical_size) noexcept
 {
     if (vertical_size <= 0)
         return;

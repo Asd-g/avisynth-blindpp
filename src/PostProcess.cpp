@@ -523,18 +523,18 @@ namespace
 
                 switch (chroma_flag_for_qp)
                 {
-                case 1: // YUV420
-                    qp_x_idx = x >> 3;
-                    qp_y_idx_shift = 3;
-                    break;
-                case 2: // YUV422
-                    qp_x_idx = x >> 3;
-                    qp_y_idx_shift = 4;
-                    break;
-                default: // Y8, YUV444
-                    qp_x_idx = x >> 4;
-                    qp_y_idx_shift = 4;
-                    break;
+                    case 1: // YUV420
+                        qp_x_idx = x >> 3;
+                        qp_y_idx_shift = 3;
+                        break;
+                    case 2: // YUV422
+                        qp_x_idx = x >> 3;
+                        qp_y_idx_shift = 4;
+                        break;
+                    default: // Y8, YUV444
+                        qp_x_idx = x >> 4;
+                        qp_y_idx_shift = 4;
+                        break;
                 }
 
                 const QP_STORE_T QP{QP_store[(y >> qp_y_idx_shift) * QP_stride + qp_x_idx]};
@@ -798,20 +798,20 @@ void postprocess_impl(FrameData& frame, const PostProcessConfig& config) noexcep
         {
             switch (format)
             {
-            case ChromaFormat::YUV420:
-                chroma_flag_for_qp = 1;
-                qp_y_shift = 3;
-                break;
-            case ChromaFormat::YUV422:
-                chroma_flag_for_qp = 2;
-                qp_y_shift = 4;
-                break;
-            case ChromaFormat::YUV444:
-                chroma_flag_for_qp = 3;
-                qp_y_shift = 4;
-                break;
-            default:
-                continue; // Should not happen with Y8 check above
+                case ChromaFormat::YUV420:
+                    chroma_flag_for_qp = 1;
+                    qp_y_shift = 3;
+                    break;
+                case ChromaFormat::YUV422:
+                    chroma_flag_for_qp = 2;
+                    qp_y_shift = 4;
+                    break;
+                case ChromaFormat::YUV444:
+                    chroma_flag_for_qp = 3;
+                    qp_y_shift = 4;
+                    break;
+                default:
+                    continue; // Should not happen with Y8 check above
             }
         }
 

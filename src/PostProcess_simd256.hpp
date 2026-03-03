@@ -352,18 +352,18 @@ namespace SIMD_NAMESPACE
 
                 switch (chroma_flag_for_qp)
                 {
-                case 1:
-                    qp_x_idx = x >> 3;
-                    qp_y_idx_shift = 3;
-                    break;
-                case 2:
-                    qp_x_idx = x >> 3;
-                    qp_y_idx_shift = 4;
-                    break;
-                default:
-                    qp_x_idx = x >> 4;
-                    qp_y_idx_shift = 4;
-                    break;
+                    case 1:
+                        qp_x_idx = x >> 3;
+                        qp_y_idx_shift = 3;
+                        break;
+                    case 2:
+                        qp_x_idx = x >> 3;
+                        qp_y_idx_shift = 4;
+                        break;
+                    default:
+                        qp_x_idx = x >> 4;
+                        qp_y_idx_shift = 4;
+                        break;
                 }
 
                 const QP_STORE_T QP{QP_store[(y >> qp_y_idx_shift) * QP_stride + qp_x_idx]};
